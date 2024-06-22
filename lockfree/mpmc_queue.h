@@ -38,10 +38,10 @@
 
 struct mpmc_queue {
 
-    _Atomic(uint64_t) head;
-    _Atomic(uint64_t) tail;
-    _Atomic(uint64_t) temp_head;
-    _Atomic(uint64_t) temp_tail;
+    _Atomic uint64_t head;
+    _Atomic uint64_t tail;
+    _Atomic uint64_t temp_head;
+    _Atomic uint64_t temp_tail;
 
     // The following aren't written to by
     // push and pop operations, therefore
