@@ -1,11 +1,13 @@
+#include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <stdbool.h>
 #include "log.h"
-#include "threads.h"
-#include "spsc_queue.h"
+#include "../thread/sync.h"
+#include "../thread/thread.h"
+#include "../lockfree/spsc_queue.h"
 
 #define thrlocal _Thread_local
 #define UNREACHABLE assert(0)
@@ -28,19 +30,13 @@
 
 #define WIN32_MEAN_AND_LEAN
 #include <windows.h>
-
 typedef void *os_handle;
 #define OS_STDOUT ((os_handle) -2)
 #define OS_STDERR ((os_handle) -3)
-
 #elif OS_LINUX
-
 typedef int os_handle;
 #define OS_STDOUT 1
 #define OS_STDERR 2
-
-typedef void *os_thread_return_type;
-
 #else
 
 #error "Unknown platform"
@@ -135,8 +131,8 @@ void logfatalf(const char *fmt, ...)
     va_end(args);
 }
 
-static logmallocfn mallocfn = malloc;
-static logfreefn     freefn = free;
+static logmallocfn mallocfn = (void*) malloc;
+static logfreefn     freefn = (void*) free;
 static void        *userptr = NULL;
 
 static void *logmalloc(size_t num)
@@ -189,8 +185,8 @@ static thrctx *get_or_create_context(void)
         size_t capacity = 1ULL << caplog2;
         
         thrctx *c = logmalloc(capacity);
-        if (c == NULL) return;
-        
+        if (c == NULL) abort();
+
         semaphore_create(&c->sem, capacity);
         spsc_queue_init(&c->queue, c->data, caplog2, sizeof(char));
         c->next = NULL;
@@ -210,10 +206,10 @@ void lograw2(const char *str, size_t len)
 {
     thrctx *context = get_or_create_context();
     semaphore_wait(&context->sem, len, -1);
-    spsc_queue_multi_push(&context->queue, str, len);
+    spsc_queue_multi_push(&context->queue, (void*) str, len);
 }
 
-void logf(const char *fmt, ...)
+void logf_(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -234,7 +230,7 @@ void logfv(const char *fmt, va_list args)
         UNREACHABLE;
     }
 
-    if (num < sizeof(buffer))
+    if ((size_t) num < sizeof(buffer))
         lograw2(buffer, (size_t) num);
     else {
         char *buffer2 = logmalloc(num+1);
@@ -317,8 +313,9 @@ static void flush_all_thread_buffers(char *file_name)
     os_close(file);
 }
 
-static os_thread_return_type flush_routine(void *arg)
+static os_threadreturn flush_routine(void *arg)
 {
+    (void) arg;
     char file_name[] = "log.txt";
 
     for (;;) {
@@ -329,4 +326,12 @@ static os_thread_return_type flush_routine(void *arg)
 
         flush_all_thread_buffers(file_name);
     }
+    return 0;
+}
+
+static os_thread writer_thread_id;
+
+void loginit(void)
+{
+    os_thread_create(&writer_thread_id, NULL, flush_routine);
 }
