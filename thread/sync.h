@@ -27,6 +27,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "../time/profile.h"
 
 #ifdef _WIN32
 #define WIN32_MEAN_AND_LEAN
@@ -73,3 +74,5 @@ bool os_semaphore_create(os_semaphore_t *sem, int count, int max);
 bool os_semaphore_delete(os_semaphore_t *sem);
 bool os_semaphore_wait  (os_semaphore_t *sem);
 bool os_semaphore_signal(os_semaphore_t *sem);
+
+profile_results_t sync_profile_results(void);

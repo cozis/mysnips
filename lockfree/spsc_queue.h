@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include "../time/profile.h"
 
 typedef struct {
     void *items;
@@ -46,3 +47,4 @@ int  spsc_queue_size(spsc_queue_t *queue);
 int  spsc_queue_capacity(spsc_queue_t *queue);
 void spsc_queue_peek_0(spsc_queue_t *queue, void **src, int *num);
 void spsc_queue_peek_1(spsc_queue_t *queue, void **src, int *num);
+profile_results_t spsc_queue_profile_results(void);

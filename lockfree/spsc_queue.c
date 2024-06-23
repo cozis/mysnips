@@ -29,14 +29,20 @@
 #include <string.h>
 #include "spsc_queue.h"
 
+PROFILE_GLOBAL_START;
+
 void spsc_queue_init(spsc_queue_t *queue, void *items,
                      uint32_t num_items_log2, uint32_t item_size)
 {
+    PROFILE_START;
+
     queue->items = items;
     queue->item_size = item_size;
     queue->cap_log2 = num_items_log2;
     queue->head = 0;
     queue->tail = 0;
+
+    PROFILE_END;
 }
 
 int spsc_queue_capacity(spsc_queue_t *queue)
@@ -58,27 +64,40 @@ static void *item_addr(spsc_queue_t *queue, int index)
 
 static void store_item(spsc_queue_t *queue, int index, void *src)
 {
+    PROFILE_START;
+
     assert(index >= 0 && index < (int) (1ULL << queue->cap_log2));
     void *dst = item_addr(queue, index);
     memcpy(dst, src, queue->item_size);
+
+    PROFILE_END;
 }
 
 static void read_item(spsc_queue_t *queue, int index, void *dst)
 {
+    PROFILE_START;
+
     assert(index >= 0 && index < (int) (1ULL << queue->cap_log2));
     void *src = item_addr(queue, index);
     memcpy(dst, src, queue->item_size);
+
+    PROFILE_END;
 }
 
 bool spsc_queue_push(spsc_queue_t *queue, void *src)
 {
+    PROFILE_START;
+
     uint32_t cap = 1U << queue->cap_log2;
     uint64_t mask = cap - 1;
 
     uint64_t head = atomic_load(&queue->head);
     uint64_t tail = atomic_load(&queue->tail);
     uint32_t used = tail - head;
-    if (used == cap) return false;
+    if (used == cap) {
+        PROFILE_END;
+        return false;
+    }
     
     if (src) store_item(queue, tail & mask, src);
 
@@ -86,11 +105,15 @@ bool spsc_queue_push(spsc_queue_t *queue, void *src)
     assert(queue->tail < UINT64_MAX);
 
     atomic_store(&queue->tail, queue->tail + 1);
+    
+    PROFILE_END;
     return true;
 }
 
 bool spsc_queue_multi_push(spsc_queue_t *queue, void *arr, int num)
 {
+    PROFILE_START;
+
     assert(num >= 0);
 
     uint32_t cap = 1U << queue->cap_log2;
@@ -99,40 +122,56 @@ bool spsc_queue_multi_push(spsc_queue_t *queue, void *arr, int num)
     uint64_t head = atomic_load(&queue->head);
     uint64_t tail = atomic_load(&queue->tail);
     uint32_t used = tail - head;
-    if (used + (uint32_t) num > cap) return false;
+    if (used + (uint32_t) num > cap) {
+        PROFILE_END;
+        return false;
+    }
 
     // We assume u64s don't overflow
     assert(tail < UINT64_MAX - num);
 
-    for (int i = 0; i < num; i++) {
-        void *src = (char*) arr + i * queue->item_size;
-        store_item(queue, (tail + i) & mask, src);
+    if (arr) {
+        for (int i = 0; i < num; i++) {
+            void *src = (char*) arr + i * queue->item_size;
+            store_item(queue, (tail + i) & mask, src);
+        }
     }
 
     atomic_store(&queue->tail, tail + (uint64_t) num);
+
+    PROFILE_END;
     return true;
 }
 
 bool spsc_queue_pop(spsc_queue_t *queue, void *dst)
 {
+    PROFILE_START;
+
     uint32_t cap = 1U << queue->cap_log2;
     uint64_t mask = cap - 1;
 
     uint64_t head = atomic_load(&queue->head);
     uint64_t tail = atomic_load(&queue->tail);
     uint32_t used = tail - head;
-    if (used == 0) return false;
-    
+    if (used == 0) {
+        PROFILE_END;
+        return false;
+    }
+
     if (dst) read_item(queue, head & mask, dst);
 
     // We assume u64s don't overflow
     assert(head < UINT64_MAX);
     atomic_store(&queue->head, head + 1);
+
+    PROFILE_END;
     return true;
 }
 
 bool spsc_queue_multi_pop(spsc_queue_t *queue, void *arr, int num)
 {
+    PROFILE_START;
+
     assert(num >= 0);
 
     uint32_t cap = 1U << queue->cap_log2;
@@ -146,17 +185,23 @@ bool spsc_queue_multi_pop(spsc_queue_t *queue, void *arr, int num)
     // We assume u64s don't overflow
     assert(head <= UINT64_MAX - num);
 
-    for (int i = 0; i < num; i++) {
-        void *dst = (char*) arr + i * queue->item_size;
-        read_item(queue, (head + i) & mask, dst);
+    if (arr) {
+        for (int i = 0; i < num; i++) {
+            void *dst = (char*) arr + i * queue->item_size;
+            read_item(queue, (head + i) & mask, dst);
+        }
     }
 
     atomic_store(&queue->head, head + (uint64_t) num);
+
+    PROFILE_END;
     return true;
 }
 
 void spsc_queue_peek_0(spsc_queue_t *queue, void **src, int *num)
 {
+    PROFILE_START;
+
     assert(src && num);
 
     uint32_t cap  = 1U << queue->cap_log2;
@@ -180,11 +225,15 @@ void spsc_queue_peek_0(spsc_queue_t *queue, void **src, int *num)
             *num = cap - masked_head;
         }
     }
+
+    PROFILE_END;
 }
 
 void spsc_queue_peek_1(spsc_queue_t *queue, void **src, int *num)
 {
-        uint32_t cap  = 1U << queue->cap_log2;
+    PROFILE_START;
+
+    uint32_t cap  = 1U << queue->cap_log2;
     uint64_t mask = cap - 1;
     uint64_t head = atomic_load(&queue->head);
     uint64_t tail = atomic_load(&queue->tail);
@@ -205,4 +254,13 @@ void spsc_queue_peek_1(spsc_queue_t *queue, void **src, int *num)
             *num = masked_tail;
         }
     }
+
+    PROFILE_END;
+}
+
+PROFILE_GLOBAL_END;
+
+profile_results_t spsc_queue_profile_results(void)
+{
+    return PROFILE_RESULTS;
 }

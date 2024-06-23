@@ -1,2 +1,5 @@
-test_log
-test_log.exe
+log_test
+log_test.exe
+log_benchmark
+log_benchmark.exe
+*.txt

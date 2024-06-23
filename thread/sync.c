@@ -35,8 +35,18 @@
 #include "sync.h"
 #include "../time/clock.h"
 
+//#define SYNC_PRINT_ERRORS
+#ifdef SYNC_PRINT_ERRORS
+#include <stdio.h>
+#include <string.h>
+#endif
+
+PROFILE_GLOBAL_START;
+
 void os_mutex_create(os_mutex_t *mutex)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
     InitializeCriticalSection(mutex);
 #elif defined(__linux__)
@@ -45,10 +55,14 @@ void os_mutex_create(os_mutex_t *mutex)
 #else
     (void) mutex;
 #endif
+
+    PROFILE_END;
 }
 
 void os_mutex_delete(os_mutex_t *mutex)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
     DeleteCriticalSection(mutex);
 #elif defined(__linux__)
@@ -57,10 +71,14 @@ void os_mutex_delete(os_mutex_t *mutex)
 #else
     (void) mutex;
 #endif
+
+    PROFILE_END;
 }
 
 void os_mutex_lock(os_mutex_t *mutex)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
     EnterCriticalSection(mutex);
 #elif defined(__linux__)
@@ -69,10 +87,14 @@ void os_mutex_lock(os_mutex_t *mutex)
 #else
     (void) mutex;
 #endif
+
+    PROFILE_END;
 }
 
 void os_mutex_unlock(os_mutex_t *mutex)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
     LeaveCriticalSection(mutex);
 #elif defined(__linux__)
@@ -81,10 +103,14 @@ void os_mutex_unlock(os_mutex_t *mutex)
 #else
     (void) mutex;
 #endif
+
+    PROFILE_END;
 }
 
 void os_condvar_create(os_condvar_t *condvar)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
     InitializeConditionVariable(condvar);
 #elif defined(__linux__)
@@ -93,21 +119,30 @@ void os_condvar_create(os_condvar_t *condvar)
 #else
     (void) condvar;
 #endif
+
+    PROFILE_END;
 }
 
 void os_condvar_delete(os_condvar_t *condvar)
 {
+    PROFILE_START;
+
 #if defined(__linux__)
     if (pthread_cond_destroy(condvar))
         abort();
 #else
     (void) condvar;
 #endif
+
+    PROFILE_END;
 }
 
 bool os_condvar_wait(os_condvar_t *condvar, os_mutex_t *mutex, int timeout_ms)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
+
     DWORD timeout = INFINITE;
     if (timeout_ms >= 0) timeout = timeout_ms;
     if (!SleepConditionVariableCS(condvar, mutex, timeout)) {
@@ -115,32 +150,47 @@ bool os_condvar_wait(os_condvar_t *condvar, os_mutex_t *mutex, int timeout_ms)
             return false;
         abort();
     }
+
+    PROFILE_END;
     return true;
+
 #elif defined(__linux__)
-    int ret;
+
+    int err;
     if (timeout_ms < 0)
-        ret = pthread_cond_wait(condvar, mutex);
+        err = pthread_cond_wait(condvar, mutex);
     else {
         uint64_t wakeup_ms = (uint64_t) timeout_ms + get_absolute_time_us() / 1000;
         struct timespec abstime = {
             .tv_sec = wakeup_ms / 1000,
             .tv_nsec = (wakeup_ms % 1000) * 1000000,
         };
-        ret = pthread_cond_timedwait(condvar, mutex, &abstime);
+        err = pthread_cond_timedwait(condvar, mutex, &abstime);
     }
-    if (ret) {
-        if (errno == ETIMEDOUT)
+    if (err) {
+        if (err == ETIMEDOUT) {
+            PROFILE_END;
             return false;
+        }
+#ifdef SYNC_PRINT_ERRORS
+        fprintf(stderr, "ERROR!! pthread_cond_wait/timedwait: %s\n", strerror(err));
+#endif
         abort();
     }
+
+    PROFILE_END;
     return true;
+
 #else
+    PROFILE_END;
     (void) condvar;
 #endif
 }
 
 void os_condvar_signal(os_condvar_t *condvar)
 {
+    PROFILE_START;
+
 #if defined(_WIN32)
     WakeConditionVariable(condvar);
 #elif defined(__linux__)
@@ -149,23 +199,35 @@ void os_condvar_signal(os_condvar_t *condvar)
 #else
     (void) condvar;
 #endif
+
+    PROFILE_END;
 }
 
 void semaphore_create(semaphore_t *sem, int count)
 {
+    PROFILE_START;
+
     sem->count = count;
     os_mutex_create(&sem->mutex);
     os_condvar_create(&sem->cond);
+
+    PROFILE_END;
 }
 
 void semaphore_delete(semaphore_t *sem)
 {
+    PROFILE_START;
+
     os_mutex_delete(&sem->mutex);
     os_condvar_delete(&sem->cond);
+
+    PROFILE_END;
 }
 
 bool semaphore_wait(semaphore_t *sem, int count, int timeout_ms)
 {
+    PROFILE_START;
+
     assert(count > 0);
 
     uint64_t start_time_ms = get_relative_time_ns() / 1000000;
@@ -179,17 +241,23 @@ bool semaphore_wait(semaphore_t *sem, int count, int timeout_ms)
         if (timeout_ms >= 0)
             remaining_ms = timeout_ms - (int) (current_time_ms - start_time_ms);
         
-        if (!os_condvar_wait(&sem->cond, &sem->mutex, remaining_ms))
+        if (!os_condvar_wait(&sem->cond, &sem->mutex, remaining_ms)) {
+            os_mutex_unlock(&sem->mutex);
+            PROFILE_END;
             return false;
+        }
     }
     sem->count -= count;
     os_mutex_unlock(&sem->mutex);
 
+    PROFILE_END;
     return true;
 }
 
 void semaphore_signal(semaphore_t *sem, int count)
 {
+    PROFILE_START;
+
     assert(count > 0);
 
     os_mutex_lock(&sem->mutex);
@@ -197,48 +265,87 @@ void semaphore_signal(semaphore_t *sem, int count)
     if (sem->count > 0)
         os_condvar_signal(&sem->cond);
     os_mutex_unlock(&sem->mutex);
+
+    PROFILE_END;
 }
 
 bool os_semaphore_create(os_semaphore_t *sem, int count, int max)
 {
+    PROFILE_START;
+
+    int ok;
+
     #ifdef _WIN32
     SECURITY_ATTRIBUTES *attr = NULL; // Default
     const char *name = NULL; // No name
     void *handle = CreateSemaphoreA(attr, count, max, name);
-    if (handle == NULL)
+    if (handle == NULL) {
+        PROFILE_END;
         return false;
+    }
     sem->data = handle;
-    return true;
+    ok = 1;
     #else
     (void) max; // POSIX doesn't use this
-    return sem_init(&sem->data, 0, count) == 0;
+    ok = sem_init(&sem->data, 0, count) == 0;
     #endif
+
+    PROFILE_END;
+    return ok;
 }
 
 bool os_semaphore_delete(os_semaphore_t *sem)
 {
+    PROFILE_START;
+
+    int ok;
+
     #ifdef _WIN32
     CloseHandle(sem->data);
-    return true;
+    ok = 1;
     #else
-    return sem_destroy(&sem->data) == 0;
+    ok = sem_destroy(&sem->data) == 0;
     #endif
+
+    PROFILE_END;
+    return ok;
 }
 
 bool os_semaphore_wait(os_semaphore_t *sem)
 {
+    PROFILE_START;
+
+    int ok;
+
     #ifdef _WIN32
-    return WaitForSingleObject(sem->data, INFINITE) == WAIT_OBJECT_0;
+    ok = WaitForSingleObject(sem->data, INFINITE) == WAIT_OBJECT_0;
     #else
-    return sem_wait(&sem->data) == 0;
+    ok = sem_wait(&sem->data) == 0;
     #endif
+
+    PROFILE_END;
+    return ok;
 }
 
 bool os_semaphore_signal(os_semaphore_t *sem)
 {
+    PROFILE_START;
+
+    int ok;
+
     #ifdef _WIN32
-    return ReleaseSemaphore(sem->data, 1, NULL);
+    ok = ReleaseSemaphore(sem->data, 1, NULL);
     #else
-    return sem_post(&sem->data) == 0;
+    ok = sem_post(&sem->data) == 0;
     #endif
+
+    PROFILE_END;
+    return ok;
+}
+
+PROFILE_GLOBAL_END;
+
+profile_results_t sync_profile_results(void)
+{
+    return PROFILE_RESULTS;
 }

@@ -1,28 +1,10 @@
 #include <stddef.h>
-#include <stdarg.h>
+#include "../time/profile.h"
 
-typedef enum {
-    LOG_FLUSH_INTERVAL_MS,
-    LOG_BUFFER_SIZE_LOG2,
-} logconfigname;
-
-void loginit(void);
-void logconfig(logconfigname name, int value);
-
-typedef void *(*logmallocfn)(size_t, void*);
-typedef void  (*logfreefn)(void*, size_t, void*);
-
-void logsetalloc(logmallocfn mallocfn,
-                 logfreefn freefn,
-                 void *userptr);
-
-void lograw(const char *str);
-void lograw2(const char *str, size_t len);
-
-void logf_(const char *fmt, ...);
-void logfv(const char *fmt, va_list args);
-
-void logfatalf(const char *fmt, ...);
-void logfatalfv(const char *fmt, va_list args);
-void logfatalraw(const char *str);
-void logfatalraw2(const char *str, size_t len);
+void log_init(const char *dest_file);
+void log_quit(void);
+void log_write(char *data);
+void log_write2(char *data, size_t size);
+void log_set_dest_file(const char *dest_file);
+void log_set_flush_timeout(int timeout_ms);
+profile_results_t log_profile_results(void);
