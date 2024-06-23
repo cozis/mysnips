@@ -25,6 +25,8 @@
  * For more information, please refer to <http://unlicense.org/>
  */
 
+#include <assert.h>
+#include <string.h>
 #include "spsc_queue.h"
 
 void spsc_queue_init(spsc_queue_t *queue, void *items,
@@ -56,14 +58,14 @@ static void *item_addr(spsc_queue_t *queue, int index)
 
 static void store_item(spsc_queue_t *queue, int index, void *src)
 {
-    assert(index >= 0 && index < queue->cap_log2);
+    assert(index >= 0 && index < (int) (1ULL << queue->cap_log2));
     void *dst = item_addr(queue, index);
     memcpy(dst, src, queue->item_size);
 }
 
 static void read_item(spsc_queue_t *queue, int index, void *dst)
 {
-    assert(index >= 0 && index < queue->cap_log2);
+    assert(index >= 0 && index < (int) (1ULL << queue->cap_log2));
     void *src = item_addr(queue, index);
     memcpy(dst, src, queue->item_size);
 }
@@ -89,7 +91,7 @@ bool spsc_queue_push(spsc_queue_t *queue, void *src)
 
 bool spsc_queue_multi_push(spsc_queue_t *queue, void *arr, int num)
 {
-    assert(num > 0);
+    assert(num >= 0);
 
     uint32_t cap = 1U << queue->cap_log2;
     uint64_t mask = cap - 1;
@@ -97,7 +99,7 @@ bool spsc_queue_multi_push(spsc_queue_t *queue, void *arr, int num)
     uint64_t head = atomic_load(&queue->head);
     uint64_t tail = atomic_load(&queue->tail);
     uint32_t used = tail - head;
-    if (used + (uint32_t) num >= cap) return false;
+    if (used + (uint32_t) num > cap) return false;
 
     // We assume u64s don't overflow
     assert(tail < UINT64_MAX - num);
@@ -131,7 +133,7 @@ bool spsc_queue_pop(spsc_queue_t *queue, void *dst)
 
 bool spsc_queue_multi_pop(spsc_queue_t *queue, void *arr, int num)
 {
-    assert(num > 0);
+    assert(num >= 0);
 
     uint32_t cap = 1U << queue->cap_log2;
     uint64_t mask = cap - 1;
@@ -139,7 +141,7 @@ bool spsc_queue_multi_pop(spsc_queue_t *queue, void *arr, int num)
     uint64_t head = atomic_load(&queue->head);
     uint64_t tail = atomic_load(&queue->tail);
     uint32_t used = tail - head;
-    if (used < num) return false;
+    if (used < (uint32_t) num) return false;
 
     // We assume u64s don't overflow
     assert(head <= UINT64_MAX - num);
