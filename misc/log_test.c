@@ -5,6 +5,7 @@
 #include "../thread/thread.h"
 
 #if defined(__linux__)
+#include <errno.h>
 #include <unistd.h>
 #endif
 

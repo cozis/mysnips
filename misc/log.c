@@ -69,9 +69,6 @@ void abort_(const char *file, int line)
 #define abort() abort_(__FILE__, __LINE__)
 #endif
 
-// TEMP
-#include <stdio.h>
-
 // Only opens for appending
 static os_handle os_open(const char *file)
 {
@@ -82,10 +79,6 @@ static os_handle os_open(const char *file)
 	os_handle handle = CreateFileA(file, GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (handle == OS_STDOUT || handle == OS_STDERR)
         abort();
-    
-    if (handle == OS_INVALID) {
-        fprintf(stderr, "error code %d\n", GetLastError());
-    }
 
     PROFILE_END;
     return handle;

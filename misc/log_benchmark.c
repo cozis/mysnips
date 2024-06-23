@@ -10,14 +10,18 @@
 #include "../thread/thread.h"
 
 #if defined(__linux__)
+#include <errno.h>
 #include <unistd.h>
 #endif
 
 #define MSG_SIZE 20
-#define NUM_THREADS 8
+#define NUM_THREADS 16
 #define NUM_PRINTS_PER_THREAD 100000
 
+FILE *libc_file;
+
 uint64_t total_elapsed_cycles = 0;
+uint64_t total_elapsed_cycles_libc = 0;
 
 os_threadreturn func(void*)
 {
@@ -33,6 +37,23 @@ os_threadreturn func(void*)
     }
 
     atomic_fetch_add(&total_elapsed_cycles, elapsed_cycles);
+    return 0;
+}
+
+os_threadreturn func2(void*)
+{
+    char buf[MSG_SIZE+1];
+    memset(buf, 'x', MSG_SIZE);
+    buf[MSG_SIZE-1] = '\0';
+
+    uint64_t elapsed_cycles = 0;
+    for (int i = 0; i < NUM_PRINTS_PER_THREAD; i++) {
+        uint64_t start = __rdtsc();
+        fwrite(buf, 1, sizeof(buf), libc_file);
+        elapsed_cycles += __rdtsc() - start;
+    }
+
+    atomic_fetch_add(&total_elapsed_cycles_libc, elapsed_cycles);
     return 0;
 }
 
@@ -83,17 +104,33 @@ int main(void)
     uint64_t start_ns = get_relative_time_ns();
 
     char file[] = "log_benchmark.txt";
-    unlink(file);
-
-    log_init(file);
-    log_set_flush_timeout(1000);
 
     os_thread desc[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++)
-        os_thread_create(&desc[i], NULL, func);
-    for (int i = 0; i < NUM_THREADS; i++)
-        os_thread_join(desc[i]);
-    log_quit();
+    
+    {
+        unlink(file);
+
+        log_init(file);
+        log_set_flush_timeout(1000);
+
+        for (int i = 0; i < NUM_THREADS; i++)
+           os_thread_create(&desc[i], NULL, func);
+        for (int i = 0; i < NUM_THREADS; i++)
+            os_thread_join(desc[i]);
+        log_quit();
+    }
+
+    {
+        unlink(file);
+        libc_file = fopen(file, "wb");
+        if (!libc_file) abort();
+        for (int i = 0; i < NUM_THREADS; i++)
+            os_thread_create(&desc[i], NULL, func2);
+        for (int i = 0; i < NUM_THREADS; i++)
+            os_thread_join(desc[i]);
+        fclose(libc_file);
+    }
+
 
     uint64_t end_cycles = __rdtsc();
     uint64_t end_ns = get_relative_time_ns();
@@ -103,9 +140,15 @@ int main(void)
     uint64_t cycles_per_log = total_elapsed_cycles / (NUM_THREADS * NUM_PRINTS_PER_THREAD);
     long double ns_per_log = cycles_per_log * ns_per_cycle;
 
+    uint64_t cycles_per_fwrite = total_elapsed_cycles_libc / (NUM_THREADS * NUM_PRINTS_PER_THREAD);
+    long double ns_per_fwrite = cycles_per_fwrite * ns_per_cycle;
+
     char temp[128];
     human_readable_time_interval(ns_per_log, temp, sizeof(temp));
     fprintf(stderr, "log_write -> %s\n", temp);
+
+    human_readable_time_interval(ns_per_fwrite, temp, sizeof(temp));
+    fprintf(stderr, "fwrite -> %s\n", temp);
 
     print_profile_results_head();
     print_profile_results(log_profile_results(), ns_per_cycle);
