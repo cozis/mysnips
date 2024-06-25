@@ -15,8 +15,8 @@
 #endif
 
 #define MSG_SIZE 20
-#define NUM_THREADS 16
-#define NUM_PRINTS_PER_THREAD 100000
+#define NUM_THREADS 1000
+#define NUM_PRINTS_PER_THREAD 1000
 
 FILE *libc_file;
 
@@ -57,47 +57,6 @@ os_threadreturn func2(void*)
     return 0;
 }
 
-void human_readable_time_interval(uint64_t ns, char *dst, size_t max)
-{
-    if (ns > 1000000000)
-        snprintf(dst, max, "%.1Lf s", (long double) ns / 1000000000);
-    else if (ns > 1000000)
-        snprintf(dst, max, "%.1Lf ms", (long double) ns / 1000000);
-    else if (ns > 1000)
-        snprintf(dst, max, "%.1Lf us", (long double) ns / 1000);
-    else
-        snprintf(dst, max, "%.1Lf ns", (long double) ns);
-}
-
-
-void print_profile_results_head()
-{
-    fprintf(stderr, "| %-30s | %-10s | %-10s | %-10s |\n",
-        "Name", "Calls", "Total", "Latency");
-}
-
-void print_profile_results(profile_results_t res, long double ns_per_cycle)
-{
-    for (int i = 0; i < res.count; i++) {
-        if (!res.array[i].name) continue;
-
-        int call_count = res.array[i].call_count;
-        uint64_t elapsed_cycles = res.array[i].elapsed_cycles;
-
-        long double total_ns = ns_per_cycle * elapsed_cycles;
-        long double latency_ns = total_ns / call_count;
-
-        char total[128];        
-        human_readable_time_interval(total_ns, total, sizeof(total));
-
-        char latency[128];        
-        human_readable_time_interval(latency_ns, latency, sizeof(latency));
-
-        fprintf(stderr, "| %-30s | %-10d | %-10s | %-10s |\n",
-            res.array[i].name, call_count, total, latency);
-    }
-}
-
 int main(void)
 {
     uint64_t start_cycles = __rdtsc();
@@ -131,7 +90,6 @@ int main(void)
         fclose(libc_file);
     }
 
-
     uint64_t end_cycles = __rdtsc();
     uint64_t end_ns = get_relative_time_ns();
 
@@ -150,10 +108,12 @@ int main(void)
     human_readable_time_interval(ns_per_fwrite, temp, sizeof(temp));
     fprintf(stderr, "fwrite -> %s\n", temp);
 
-    print_profile_results_head();
-    print_profile_results(log_profile_results(), ns_per_cycle);
-    print_profile_results(spsc_queue_profile_results(), ns_per_cycle);
-    print_profile_results(sync_profile_results(), ns_per_cycle);
+    profile_results_t prof_results[] = {
+        log_profile_results(),
+        spsc_queue_profile_results(),
+        sync_profile_results(),
+    };
+    print_profile_results(prof_results, sizeof(prof_results)/sizeof(prof_results[0]), ns_per_cycle);
 
     return 0;
 }

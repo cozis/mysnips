@@ -36,12 +36,13 @@ typedef struct {
 #define PROFILE_RESULTS (profile_results_t) {profile_table__, sizeof(profile_table__) / sizeof(profile_table__[0])}
 
 #else
-
 #define PROFILE_START
 #define PROFILE_END
 #define PROFILE_GLOBAL_START
 #define PROFILE_GLOBAL_END
 #define PROFILE_RESULTS (profile_results_t) {NULL, 0}
 #endif
-
 #endif
+
+void human_readable_time_interval(uint64_t ns, char *dst, size_t max);
+void print_profile_results(profile_results_t res_list[], int num_results, long double ns_per_cycle);
