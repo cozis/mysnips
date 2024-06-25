@@ -265,6 +265,32 @@ static os_threadreturn flush_routine(void*)
     return 0;
 }
 
+void log_writef(const char *fmt, ...)
+{
+    PROFILE_START;
+
+    va_list args;
+    va_start(args, fmt);
+    log_writefv(fmt, args);
+    va_end(args);
+
+    PROFILE_END;
+}
+
+void log_writefv(const char *fmt, va_list args)
+{
+    PROFILE_START;
+
+    char buffer[1<<12];
+    int len = vsnprintf(buffer, sizeof(buffer), fmt, args);
+    if (len < 0) abort();
+    if ((size_t) len >= sizeof(buffer)) abort();
+    buffer[len] = '\0';
+    log_write2(buffer, len);
+
+    PROFILE_END;
+}
+
 void log_write(char *data)
 {
     PROFILE_START;

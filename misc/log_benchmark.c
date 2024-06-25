@@ -32,7 +32,7 @@ os_threadreturn func(void*)
     uint64_t elapsed_cycles = 0;
     for (int i = 0; i < NUM_PRINTS_PER_THREAD; i++) {
         uint64_t start = __rdtsc();
-        log_write(buf);
+        log_writef("%s", buf);
         elapsed_cycles += __rdtsc() - start;
     }
 
@@ -49,7 +49,7 @@ os_threadreturn func2(void*)
     uint64_t elapsed_cycles = 0;
     for (int i = 0; i < NUM_PRINTS_PER_THREAD; i++) {
         uint64_t start = __rdtsc();
-        fwrite(buf, 1, sizeof(buf), libc_file);
+        fprintf(libc_file, "%s", buf);
         elapsed_cycles += __rdtsc() - start;
     }
 
@@ -103,10 +103,10 @@ int main(void)
 
     char temp[128];
     human_readable_time_interval(ns_per_log, temp, sizeof(temp));
-    fprintf(stderr, "log_write -> %s\n", temp);
+    fprintf(stderr, "log_writef -> %s\n", temp);
 
     human_readable_time_interval(ns_per_fwrite, temp, sizeof(temp));
-    fprintf(stderr, "fwrite -> %s\n", temp);
+    fprintf(stderr, "fprintf -> %s\n", temp);
 
     profile_results_t prof_results[] = {
         log_profile_results(),

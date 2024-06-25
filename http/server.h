@@ -59,16 +59,16 @@ struct server {
     size_t qused;
     struct client *qdata[MAX_CLIENTS];
 };
-bool     init_server(struct server *s, const char *addr, uint16_t port);
-void     free_server(struct server *s);
-uint32_t wait_request(struct server *s, struct request *r);
-void     set_status(struct server *s, uint32_t handle, int status);
-void     append_header(struct server *s, uint32_t handle, char *text);
-void     append_header_format(struct server *s, uint32_t handle, char *format, ...);
-void     append_content(struct server *s, uint32_t handle, void *data, size_t size);
-void     append_content_string(struct server *s, uint32_t handle, char *text);
-void     append_content_format(struct server *s, uint32_t handle, const char *format, ...);
-void     append_content_format_2(struct server *s, uint32_t handle, const char *format, va_list args);
-void     send_response(struct server *s, uint32_t handle);
+bool     http_server_init(struct server *s, const char *addr, uint16_t port);
+void     http_server_free(struct server *s);
+uint32_t http_server_wait_request(struct server *s, struct request *r);
+void     http_server_set_status(struct server *s, uint32_t handle, int status);
+void     http_server_append_header(struct server *s, uint32_t handle, char *text);
+void     http_server_append_header_format(struct server *s, uint32_t handle, char *format, ...);
+void     http_server_append_content(struct server *s, uint32_t handle, void *data, size_t size);
+void     http_server_append_content_string(struct server *s, uint32_t handle, char *text);
+void     http_server_append_content_format(struct server *s, uint32_t handle, const char *format, ...);
+void     http_server_append_content_format_2(struct server *s, uint32_t handle, const char *format, va_list args);
+void     http_server_send_response(struct server *s, uint32_t handle);
 
 #endif /* SERVER_H */

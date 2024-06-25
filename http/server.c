@@ -367,9 +367,9 @@ void process_io(struct server *s)
     }
 }
 
-bool init_server(struct server *s,
-                 const char *addr,
-                 uint16_t port)
+bool http_server_init(struct server *s,
+                      const char *addr,
+                      uint16_t port)
 {
     int fd = start_server_ipv4(addr, port);
     if (fd < 0)
@@ -393,7 +393,7 @@ bool init_server(struct server *s,
     return s;
 }
 
-void free_server(struct server *s)
+void http_server_free(struct server *s)
 {
     for (int i = 0; i < s->ncs; i++) {
         int ci = s->pis[i];
@@ -403,7 +403,7 @@ void free_server(struct server *s)
     close(s->fd);
 }
 
-bool append_output(struct client *c, void *data, size_t size)
+bool http_server_append_output(struct client *c, void *data, size_t size)
 {
     if (data == NULL || size == 0)
         return true;
@@ -416,12 +416,12 @@ bool append_output(struct client *c, void *data, size_t size)
     return true;
 }
 
-bool append_output_string(struct client *c, char *str)
+bool http_server_append_output_string(struct client *c, char *str)
 {
     return append_output(c, str, str ? strlen(str) : 0);
 }
 
-bool append_output_format_2(struct client *c, const char *f, va_list args)
+bool http_server_append_output_format_2(struct client *c, const char *f, va_list args)
 {
     va_list args_copy;
     va_copy(args_copy, args);
@@ -448,7 +448,7 @@ bool append_output_format_2(struct client *c, const char *f, va_list args)
     return true;
 }
 
-bool append_output_format(struct client *c, const char *f, ...)
+bool http_server_append_output_format(struct client *c, const char *f, ...)
 {
     bool ok;
     va_list args;
@@ -554,8 +554,8 @@ void send_basic_response_and_close(struct server *s, struct client *c, int minor
     }
 }
 
-uint32_t wait_request(struct server *s,
-                      struct request *r)
+uint32_t http_server_wait_request(struct server *s,
+                                  struct request *r)
 {
     struct client *c;
     for (;;) {
@@ -637,7 +637,7 @@ struct client *client_from_handle(struct server *s, uint32_t handle)
     return c;
 }
 
-void set_status(struct server *s, uint32_t handle, int status)
+void http_server_set_status(struct server *s, uint32_t handle, int status)
 {
     struct client *c = client_from_handle(s, handle);
     if (c == NULL) return;
@@ -654,8 +654,8 @@ void set_status(struct server *s, uint32_t handle, int status)
     }
 }
 
-bool parse_header(char *src, size_t len,
-                  struct header *h)
+bool http_server_parse_header(char *src, size_t len,
+                              struct header *h)
 {
     size_t cur = 0;
     size_t start;
@@ -675,7 +675,7 @@ bool parse_header(char *src, size_t len,
     return true;
 }
 
-void append_header_format(struct server *s, uint32_t handle, char *format, ...)
+void http_server_append_header_format(struct server *s, uint32_t handle, char *format, ...)
 {
     int num;
     char mem[1<<10];
@@ -697,7 +697,7 @@ void append_header_format(struct server *s, uint32_t handle, char *format, ...)
     append_header(s, handle, mem);
 }
 
-void append_header(struct server *s, uint32_t handle, char *text)
+void http_server_append_header(struct server *s, uint32_t handle, char *text)
 {
     struct client *c = client_from_handle(s, handle);
     if (c == NULL)
@@ -771,7 +771,7 @@ bool append_special_headers(struct server *s, struct client *c)
     return true;
 }
 
-void append_content(struct server *s, uint32_t handle, void *data, size_t size)
+void http_server_append_content(struct server *s, uint32_t handle, void *data, size_t size)
 {
     struct client *c = client_from_handle(s, handle);
     if (c == NULL) return;
@@ -789,7 +789,7 @@ void append_content(struct server *s, uint32_t handle, void *data, size_t size)
     }
 }
 
-void append_content_format(struct server *s, uint32_t handle, const char *format, ...)
+void http_server_append_content_format(struct server *s, uint32_t handle, const char *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -797,7 +797,7 @@ void append_content_format(struct server *s, uint32_t handle, const char *format
     va_end(args);
 }
 
-void append_content_format_2(struct server *s, uint32_t handle, const char *format, va_list args)
+void http_server_append_content_format_2(struct server *s, uint32_t handle, const char *format, va_list args)
 {
     struct client *c = client_from_handle(s, handle);
     if (c == NULL) return;
@@ -815,12 +815,12 @@ void append_content_format_2(struct server *s, uint32_t handle, const char *form
     }
 }
 
-void append_content_string(struct server *s, uint32_t handle, char *text)
+void http_server_append_content_string(struct server *s, uint32_t handle, char *text)
 {
     append_content(s, handle, text, strlen(text));
 }
 
-void send_response(struct server *s, uint32_t handle)
+void http_server_send_response(struct server *s, uint32_t handle)
 {
     struct client *c = client_from_handle(s, handle);
     if (c == NULL) return;
