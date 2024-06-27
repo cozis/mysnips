@@ -1,10 +1,10 @@
-#ifndef CATY_OS_ALLOC_H
-#define CATY_OS_ALLOC_H
+#ifndef OS_ALLOC_H
+#define OS_ALLOC_H
 
 #include <stddef.h>
 
-size_t ospagesize(void);
-void osfree(void *addr, size_t len);
-void *osalloc(size_t len);
+size_t os_pagesize(void);
+void   os_free(void *addr, size_t len);
+void  *os_alloc(size_t len);
 
-#endif /* CATY_OS_ALLOC_H */
+#endif

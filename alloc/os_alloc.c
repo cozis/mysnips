@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 
 #include "os_alloc.h"
 
@@ -25,7 +26,7 @@
 #include <sys/mman.h>
 #endif
 
-size_t ospagesize(void)
+size_t os_pagesize(void)
 {
     #if PLATFORM_WINDOWS
     SYSTEM_INFO si;
@@ -35,7 +36,7 @@ size_t ospagesize(void)
 
     #if PLATFORM_LINUX
     long n = sysconf(_SC_PAGESIZE);
-    assert(n > 0);
+    if (n <= 0) abort();
     return n;
     #endif
 
@@ -44,7 +45,7 @@ size_t ospagesize(void)
     #endif
 }
 
-void osfree(void *addr, size_t len)
+void os_free(void *addr, size_t len)
 {
     #if PLATFORM_WINDOWS
     VirtualFree(addr, len, MEM_RELEASE);
@@ -55,24 +56,22 @@ void osfree(void *addr, size_t len)
     #endif
 }
 
-void *osalloc(size_t len)
+void *os_alloc(size_t len)
 {
     #if PLATFORM_WINDOWS
-    return VirtualAlloc(NULL, len, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    void *addr = VirtualAlloc(NULL, len, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    if (addr == NULL) abort();
+    return addr;
     #endif
 
     #if PLATFORM_LINUX
     void *addr = mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-    if (addr == NULL) { // We use NULL to report problems, so we can't use this page
-        osfree(addr, len);
-        return NULL;
-    }
     if (addr == MAP_FAILED)
-        return NULL;
+        abort();
     return addr;
     #endif
 
     #if PLATFORM_OTHER
-    return NULL;
+    abort();
     #endif
 }
