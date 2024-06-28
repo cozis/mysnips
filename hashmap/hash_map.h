@@ -1,4 +1,11 @@
 #include <stdbool.h>
+#include "../thread/sync.h"
+
+enum {
+    UNUSED,
+    USED,
+    DELETED,
+};
 
 typedef struct {
     void *value;
@@ -10,6 +17,7 @@ typedef struct {
     item_t *pool; // Pool of 2^n items
     int     size; // Capacity of the pool
     int     used; // Number of pool slots occupied
+    os_mutex_t mutex;
 } hashmap_t;
 
 void  hashmap_create(hashmap_t *map, int init_size);

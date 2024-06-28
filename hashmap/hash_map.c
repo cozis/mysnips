@@ -6,12 +6,6 @@
 // TEMP
 #include <stdio.h>
 
-enum {
-    UNUSED,
-    USED,
-    DELETED,
-};
-
 static int next_pow2(int v)
 {
     v--;
@@ -43,16 +37,22 @@ void hashmap_create(hashmap_t *map, int init_size)
 
     map->size = init_size;
     map->used = 0;
+
+    os_mutex_create(&map->mutex);
 }
 
 void hashmap_delete(hashmap_t *map)
 {
     os_free(map->pool, sizeof(item_t) * map->size);
+    os_mutex_delete(&map->mutex);
 }
 
 int hashmap_count(hashmap_t *map)
 {
-    return map->used;
+    os_mutex_lock(&map->mutex);
+    int count = map->used;
+    os_mutex_unlock(&map->mutex);
+    return count;
 }
 
 static bool should_resize(hashmap_t *map)
@@ -108,6 +108,8 @@ static int hashfunc(int key)
 
 void hashmap_insert(hashmap_t *map, int key, void *value)
 {
+    os_mutex_lock(&map->mutex);
+
     assert(value);
 
     if (should_resize(map))
@@ -120,9 +122,10 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
     int pert = hash;
     int mask = map->size - 1;
 
+    int insert_index = -1;
     int i = hash & mask;
     for (;;) {
-        
+
         /*
          * Look for a slot that's either marked as 
          * UNUSED or DELETED.
@@ -137,23 +140,25 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
 
         item_t *item = &map->pool[i];
         if (item->state == UNUSED || item->state == DELETED) {
-            
+
             /*
              * Insert the item
              */
+            if (insert_index < 0)
+                insert_index = i;
+            
+            if (item->state == UNUSED)
+                break;
 
-            item->value = value;
-            item->state = USED;
-            item->key = key;
-            map->used++;
-            break;
-        }
+        } else {
 
-        assert(item->state == USED);
+            assert(item->state == USED);
 
-        if (item->key == key) {
-            item->value = value;
-            break;
+            if (item->key == key) {
+                insert_index = -1;
+                item->value = value;
+                break;
+            }
         }
 
         /*
@@ -162,20 +167,33 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
         pert >>= 5;
         i = (i*5 + pert + 1) & mask;
     }
+
+    if (insert_index > -1) {
+        map->pool[insert_index].value = value;
+        map->pool[insert_index].state = USED;
+        map->pool[insert_index].key = key;
+        map->used++;
+    }
+
+    os_mutex_unlock(&map->mutex);
 }
 
 bool hashmap_remove(hashmap_t *map, int key)
 {
-    if (map->size == 0)
+    os_mutex_lock(&map->mutex);
+
+    if (map->size == 0) {
+        os_mutex_unlock(&map->mutex);
         return false;
+    }
 
     assert(is_pow2(map->size));
 
-    uint32_t hash = hashfunc(key);
-    uint32_t pert = hash;
-    uint32_t mask = map->size - 1;
+    int hash = hashfunc(key);
+    int pert = hash;
+    int mask = map->size - 1;
 
-    uint32_t i = hash & mask;
+    int i = hash & mask;
     for (;;) {
 
         /*
@@ -188,8 +206,10 @@ bool hashmap_remove(hashmap_t *map, int key)
 
         item_t *item = &map->pool[i];
 
-        if (item->state == UNUSED)
+        if (item->state == UNUSED) {
+            os_mutex_unlock(&map->mutex);
             return false;
+        }
 
         if (item->state == USED && item->key == key) {
             
@@ -214,13 +234,19 @@ bool hashmap_remove(hashmap_t *map, int key)
         pert >>= 5;
         i = (i*5 + pert + 1) & mask;
     }
+
+    os_mutex_unlock(&map->mutex);
     return true;
 }
 
 void *hashmap_select(hashmap_t *map, int key)
 {
-    if (map->size == 0)
+    os_mutex_lock(&map->mutex);
+
+    if (map->size == 0) {
+        os_mutex_unlock(&map->mutex);
         return NULL;
+    }
 
     assert(is_pow2(map->size));
 
@@ -228,9 +254,8 @@ void *hashmap_select(hashmap_t *map, int key)
     int pert = hash;
     int mask = map->size - 1;
 
-    int start_i =  hash & mask;
-    int i = start_i;
-    do {
+    int i =  hash & mask;
+    for (;;) {
 
         /*
          * This loop is pretty much the same as Delete,
@@ -242,8 +267,11 @@ void *hashmap_select(hashmap_t *map, int key)
 
         if (item->state == UNUSED) break;
 
-        if (item->state == USED && item->key == key)
-            return item->value;
+        if (item->state == USED && item->key == key) {
+            void *value = item->value;
+            os_mutex_unlock(&map->mutex);
+            return value;
+        }
 
         assert(item->state == DELETED || item->state == USED);
 
@@ -253,8 +281,9 @@ void *hashmap_select(hashmap_t *map, int key)
         pert >>= 5;
         i = (i*5 + pert + 1) & mask;
 
-    } while (i != start_i);
+    };
 
+    os_mutex_unlock(&map->mutex);
     return NULL;
 }
 

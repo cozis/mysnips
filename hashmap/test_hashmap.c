@@ -47,6 +47,7 @@ int main(void)
         int min_key = 0;
         int key = min_key + rand() % (max_key - min_key + 1);
         void *value = (void*) (uintptr_t) rand();
+        if (value == NULL) value = 1;
 
         CHECKEQI(hashmap_exists(&map1, key), hashmapref_exists(&map2, key));
 
@@ -78,8 +79,28 @@ int main(void)
             }
             break;
         }
+#if 0
+        fprintf(stderr, "=== MAP 1 ===\n");
+        for (int i = 0; i < map1.size; i++) {
+            if (map1.pool[i].state == USED) {
+                fprintf(stderr, "%d - %p\n",
+                    map1.pool[i].key,
+                    map1.pool[i].value);
+            }
+        }
+        fprintf(stderr, "=============\n\n");
 
+        fprintf(stderr, "=== MAP 2 ===\n");
         for (int i = 0; i < map2.count; i++) {
+            fprintf(stderr, "%d - %p\n",
+                map2.entries[i].key,
+                map2.entries[i].value);
+        }
+        fprintf(stderr, "=============\n");
+#endif
+        for (int i = 0; i < map2.count; i++) {
+            if (!hashmap_exists(&map1, map2.entries[i].key))
+                fprintf(stderr, "Missing key %d\n", map2.entries[i].key);
             CHECK(hashmap_exists(&map1, map2.entries[i].key));
         }
 
