@@ -146,8 +146,10 @@ bool os_condvar_wait(os_condvar_t *condvar, os_mutex_t *mutex, int timeout_ms)
     DWORD timeout = INFINITE;
     if (timeout_ms >= 0) timeout = timeout_ms;
     if (!SleepConditionVariableCS(condvar, mutex, timeout)) {
-        if (GetLastError() == ERROR_TIMEOUT)
+        if (GetLastError() == ERROR_TIMEOUT) {
+            PROFILE_END;
             return false;
+        }
         abort();
     }
 

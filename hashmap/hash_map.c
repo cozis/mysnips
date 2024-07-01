@@ -108,6 +108,9 @@ static int hashfunc(int key)
 
 void hashmap_insert(hashmap_t *map, int key, void *value)
 {
+    int hash = hashfunc(key);
+    int pert = hash;
+
     os_mutex_lock(&map->mutex);
 
     assert(value);
@@ -118,8 +121,6 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
     assert(map->used < map->size);
     assert(is_pow2(map->size));
 
-    int hash = hashfunc(key);
-    int pert = hash;
     int mask = map->size - 1;
 
     int insert_index = -1;
@@ -180,6 +181,9 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
 
 bool hashmap_remove(hashmap_t *map, int key)
 {
+    int hash = hashfunc(key);
+    int pert = hash;
+
     os_mutex_lock(&map->mutex);
 
     if (map->size == 0) {
@@ -188,9 +192,6 @@ bool hashmap_remove(hashmap_t *map, int key)
     }
 
     assert(is_pow2(map->size));
-
-    int hash = hashfunc(key);
-    int pert = hash;
     int mask = map->size - 1;
 
     int i = hash & mask;
@@ -241,6 +242,9 @@ bool hashmap_remove(hashmap_t *map, int key)
 
 void *hashmap_select(hashmap_t *map, int key)
 {
+    int hash = hashfunc(key);
+    int pert = hash;
+
     os_mutex_lock(&map->mutex);
 
     if (map->size == 0) {
@@ -250,8 +254,6 @@ void *hashmap_select(hashmap_t *map, int key)
 
     assert(is_pow2(map->size));
 
-    int hash = hashfunc(key);
-    int pert = hash;
     int mask = map->size - 1;
 
     int i =  hash & mask;
