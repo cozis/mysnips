@@ -21,10 +21,10 @@ void checkeqi(int left, int right, const char *file, int line)
     }
 }
 
-void checkeqp(void *left, void *right, const char *file, int line)
+void checkeqp(uintptr_t left, uintptr_t right, const char *file, int line)
 {
     if (left != right) {
-        fprintf(stderr, "Assertion Failed [%p == %p] at %s:%d\n", left, right, file, line);
+        fprintf(stderr, "Assertion Failed [%llx == %llx] at %s:%d\n", left, right, file, line);
         abort();
     }
 }
@@ -46,8 +46,8 @@ int main(void)
         int max_key = 10;
         int min_key = 0;
         int key = min_key + rand() % (max_key - min_key + 1);
-        void *value = (void*) (uintptr_t) rand();
-        if (value == NULL) value = 1;
+        uintptr_t value = (uintptr_t) rand();
+        if (value == 0) value = 1;
 
         CHECKEQI(hashmap_exists(&map1, key), hashmapref_exists(&map2, key));
 
@@ -73,8 +73,8 @@ int main(void)
             case 2:
             {
                 fprintf(stderr, "SELECT %d\n", key);
-                void *v1 = hashmap_select(&map1, key);
-                void *v2 = hashmapref_select(&map2, key);
+                uintptr_t v1 = hashmap_select(&map1, key);
+                uintptr_t v2 = hashmapref_select(&map2, key);
                 CHECKEQP(v1, v2);
             }
             break;
@@ -83,7 +83,7 @@ int main(void)
         fprintf(stderr, "=== MAP 1 ===\n");
         for (int i = 0; i < map1.size; i++) {
             if (map1.pool[i].state == USED) {
-                fprintf(stderr, "%d - %p\n",
+                fprintf(stderr, "%lld - %lld\n",
                     map1.pool[i].key,
                     map1.pool[i].value);
             }
@@ -92,7 +92,7 @@ int main(void)
 
         fprintf(stderr, "=== MAP 2 ===\n");
         for (int i = 0; i < map2.count; i++) {
-            fprintf(stderr, "%d - %p\n",
+            fprintf(stderr, "%lld - %lld\n",
                 map2.entries[i].key,
                 map2.entries[i].value);
         }
@@ -100,7 +100,7 @@ int main(void)
 #endif
         for (int i = 0; i < map2.count; i++) {
             if (!hashmap_exists(&map1, map2.entries[i].key))
-                fprintf(stderr, "Missing key %d\n", map2.entries[i].key);
+                fprintf(stderr, "Missing key %lld\n", map2.entries[i].key);
             CHECK(hashmap_exists(&map1, map2.entries[i].key));
         }
 

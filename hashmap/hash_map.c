@@ -101,15 +101,20 @@ static void resize(hashmap_t *map, int new_size)
     os_free(old_pool, sizeof(item_t) * old_size);
 }
 
-static int hashfunc(int key)
+static uint64_t hashfunc(uint64_t x)
 {
-    return key;
+    /* SplitMix64 */
+    uint64_t h = x;
+    h += 0x9e3779b97f4a7c15; h ^= h >> 30;
+    h *= 0xbf58476d1ce4e5b9; h ^= h >> 27;
+    h *= 0x94d049bb133111eb; h ^= h >> 31;
+    return h;
 }
 
-void hashmap_insert(hashmap_t *map, int key, void *value)
+void hashmap_insert(hashmap_t *map, uintptr_t key, uintptr_t value)
 {
-    int hash = hashfunc(key);
-    int pert = hash;
+    uintptr_t hash = hashfunc(key);
+    uintptr_t pert = hash;
 
     os_mutex_lock(&map->mutex);
 
@@ -147,7 +152,7 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
              */
             if (insert_index < 0)
                 insert_index = i;
-            
+
             if (item->state == UNUSED)
                 break;
 
@@ -179,10 +184,10 @@ void hashmap_insert(hashmap_t *map, int key, void *value)
     os_mutex_unlock(&map->mutex);
 }
 
-bool hashmap_remove(hashmap_t *map, int key)
+bool hashmap_remove(hashmap_t *map, uintptr_t key)
 {
-    int hash = hashfunc(key);
-    int pert = hash;
+    uintptr_t hash = hashfunc(key);
+    uintptr_t pert = hash;
 
     os_mutex_lock(&map->mutex);
 
@@ -220,7 +225,7 @@ bool hashmap_remove(hashmap_t *map, int key)
              */
             
             item->state = DELETED;
-            item->value = NULL;
+            item->value = 0;
             item->key = -1;
 
             map->used--;
@@ -240,16 +245,16 @@ bool hashmap_remove(hashmap_t *map, int key)
     return true;
 }
 
-void *hashmap_select(hashmap_t *map, int key)
+uintptr_t hashmap_select(hashmap_t *map, uintptr_t key)
 {
-    int hash = hashfunc(key);
-    int pert = hash;
+    uintptr_t hash = hashfunc(key);
+    uintptr_t pert = hash;
 
     os_mutex_lock(&map->mutex);
 
     if (map->size == 0) {
         os_mutex_unlock(&map->mutex);
-        return NULL;
+        return 0;
     }
 
     assert(is_pow2(map->size));
@@ -270,7 +275,7 @@ void *hashmap_select(hashmap_t *map, int key)
         if (item->state == UNUSED) break;
 
         if (item->state == USED && item->key == key) {
-            void *value = item->value;
+            uintptr_t value = item->value;
             os_mutex_unlock(&map->mutex);
             return value;
         }
@@ -286,10 +291,10 @@ void *hashmap_select(hashmap_t *map, int key)
     };
 
     os_mutex_unlock(&map->mutex);
-    return NULL;
+    return 0;
 }
 
-bool hashmap_exists(hashmap_t *map, int key)
+bool hashmap_exists(hashmap_t *map, uintptr_t key)
 {
-    return hashmap_select(map, key) != NULL;
+    return hashmap_select(map, key) != 0;
 }

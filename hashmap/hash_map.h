@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdbool.h>
 #include "../thread/sync.h"
 
@@ -8,9 +9,9 @@ enum {
 };
 
 typedef struct {
-    void *value;
-    int   state;
-    int   key;
+    int       state;
+    uintptr_t value;
+    uintptr_t key;
 } item_t;
 
 typedef struct {
@@ -20,10 +21,10 @@ typedef struct {
     os_mutex_t mutex;
 } hashmap_t;
 
-void  hashmap_create(hashmap_t *map, int init_size);
-void  hashmap_delete(hashmap_t *map);
-int   hashmap_count(hashmap_t *map);
-void  hashmap_insert(hashmap_t *map, int key, void *value);
-bool  hashmap_remove(hashmap_t *map, int key);
-void *hashmap_select(hashmap_t *map, int key);
-bool  hashmap_exists(hashmap_t *map, int key);
+void      hashmap_create(hashmap_t *map, int init_size);
+void      hashmap_delete(hashmap_t *map);
+int       hashmap_count (hashmap_t *map);
+void      hashmap_insert(hashmap_t *map, uintptr_t key, uintptr_t value);
+bool      hashmap_remove(hashmap_t *map, uintptr_t key);
+uintptr_t hashmap_select(hashmap_t *map, uintptr_t key);
+bool      hashmap_exists(hashmap_t *map, uintptr_t key);

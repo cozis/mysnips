@@ -19,7 +19,7 @@ int hashmapref_count(hashmapref_t *ref)
     return ref->count;
 }
 
-void hashmapref_insert(hashmapref_t *ref, int key, void *value)
+void hashmapref_insert(hashmapref_t *ref, uintptr_t key, uintptr_t value)
 {
     for (int i = 0; i < ref->count; i++) {
         if (ref->entries[i].key == key) {
@@ -48,7 +48,7 @@ void hashmapref_insert(hashmapref_t *ref, int key, void *value)
     ref->count++;
 }
 
-bool hashmapref_remove(hashmapref_t *ref, int key)
+bool hashmapref_remove(hashmapref_t *ref, uintptr_t key)
 {
     int i = 0;
     while (i < ref->count && ref->entries[i].key != key)
@@ -61,17 +61,17 @@ bool hashmapref_remove(hashmapref_t *ref, int key)
     return true;
 }
 
-void *hashmapref_select(hashmapref_t *ref, int key)
+uintptr_t hashmapref_select(hashmapref_t *ref, uintptr_t key)
 {
     int i = 0;
     while (i < ref->count && ref->entries[i].key != key)
         i++;
     if (i == ref->count)
-        return NULL;
+        return 0;
     return ref->entries[i].value;
 }
 
-bool hashmapref_exists(hashmapref_t *ref, int key)
+bool hashmapref_exists(hashmapref_t *ref, uintptr_t key)
 {
-    return hashmapref_select(ref, key) != NULL;
+    return hashmapref_select(ref, key) != 0;
 }
