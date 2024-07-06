@@ -73,11 +73,23 @@ PRIVATE size_t getByteCount(GapBuffer *buff)
 */
 GapBuffer *GapBuffer_createUsingMemory(void *mem, size_t len, void (*free)(void*))
 {
-    if (mem == NULL || len < sizeof(GapBuffer)) {
+    if (mem == NULL) {
         if (free) free(mem);
         return NULL;
     }
-    
+
+    size_t pad = -(uintptr_t) mem & (_Alignof(GapBuffer)-1);
+    if (len < pad) {
+        if (free) free(mem);
+        return NULL;
+    }
+    mem = (uint8_t*) mem + pad;
+    len -= pad;
+
+    if (len < sizeof(GapBuffer)) {
+        if (free) free(mem);
+        return NULL;
+    }
     size_t capacity = len - sizeof(GapBuffer);
 
     GapBuffer *buff = mem;
